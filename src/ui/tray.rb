@@ -116,8 +116,12 @@ class Tray
 
   def open_dir_handler
     Swt::Widgets::Listener.impl do |method, evt|
-      dia = Swt::Widgets::DirectoryDialog.new(@shell)
-      watch(dia.open) 
+      if evt.widget.text =~ /^Stop/
+        kill_thread
+      else
+        dia = Swt::Widgets::DirectoryDialog.new(@shell)
+        watch(dia.open) 
+      end
     end
   end
 
@@ -196,7 +200,18 @@ class Tray
   def kill_thread
     @watch_thread.kill if @watch_thread && @watch_thread.alive?
     if @watch_pipe
-      Process.kill("INT", @watch_pipe.pid) 
+      
+      pid_exists = begin
+          Process.getpgid( @watch_pipe.pid )
+            true
+      rescue Errno::ESRCH
+          false
+      end
+
+      Process.kill("INT", @watch_pipe.pid) if pid_exists
+
+      @watch_pipe = nil
+
     end
     @watch_item.text="Watch a Folder..."
     @tray_item.image = @standby_icon
