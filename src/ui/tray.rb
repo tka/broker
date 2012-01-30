@@ -193,24 +193,36 @@ class Tray
     @tray_item.image = @watching_icon
 
     App.try do 
-      @watch_pipe =  IO.popen("#{App::CONFIG["middleman_command"]["server"]} ") 
+      puts "#{App::CONFIG["middleman_command"]["server"]} "
+
+      if org.jruby.platform.Platform::IS_WINDOWS
+        Thread.new do
+          `#{App::CONFIG["middleman_command"]["server"]} `
+        end
+      else
+        @watch_pipe =  IO.popen("#{App::CONFIG["middleman_command"]["server"]} ") 
+
+      end
     end
   end
 
   def kill_thread
     @watch_thread.kill if @watch_thread && @watch_thread.alive?
-    if @watch_pipe
-      
-      pid_exists = begin
-          Process.getpgid( @watch_pipe.pid )
-            true
-      rescue Errno::ESRCH
-          false
+
+    if org.jruby.platform.Platform::IS_WINDOWS
+      system("taskkill /F /IM ruby*")
+    else
+      if @watch_pipe
+        pid_exists = begin
+                       Process.getpgid( @watch_pipe.pid )
+                       true
+                     rescue Errno::ESRCH
+                       false
+                     end
+
+        Process.kill("INT", @watch_pipe.pid) if pid_exists
+        @watch_pipe = nil
       end
-
-      Process.kill("INT", @watch_pipe.pid) if pid_exists
-
-      @watch_pipe = nil
 
     end
     @watch_item.text="Watch a Folder..."
